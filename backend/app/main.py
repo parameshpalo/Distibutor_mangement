@@ -3,13 +3,16 @@
 import datetime as dt
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
+from .auth import decode_token
 from .config import get_settings
 from .database import Base, engine
 from .routers import (
+    auth,
     deliveries,
     billing,
     collections,
@@ -22,6 +25,39 @@ from .routers import (
 from .services.stock import InsufficientStock
 
 settings = get_settings()
+
+# Public endpoints that do not need a bearer token.
+_PUBLIC_PATHS = {
+    "/api/health",
+    "/api/auth/login",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+}
+
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if request.method == "OPTIONS" or path in _PUBLIC_PATHS:
+            return await call_next(request)
+        if path.startswith("/api/"):
+            header = request.headers.get("authorization", "")
+            if not header.lower().startswith("bearer "):
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "Not authenticated"},
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            try:
+                request.state.username = decode_token(header.split(" ", 1)[1].strip())
+            except HTTPException as exc:
+                return JSONResponse(
+                    status_code=exc.status_code,
+                    content={"detail": exc.detail},
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+        return await call_next(request)
 
 
 @asynccontextmanager
@@ -42,6 +78,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
@@ -66,6 +103,7 @@ async def _insufficient_stock(_request: Request, exc: InsufficientStock):
     )
 
 
+app.include_router(auth.router)
 app.include_router(masters.router)
 app.include_router(deliveries.router)
 app.include_router(inventory.router)

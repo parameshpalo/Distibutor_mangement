@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite:///{BASE_DIR / 'data' / 'distribution.db'}"
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
+    # Single-admin login. Override via ADMIN_USERNAME / ADMIN_PASSWORD / AUTH_SECRET.
+    admin_username: str = "admin"
+    admin_password: str = "BwzshkIIVEG4DZoQ"
+    auth_secret: str = "vOIawQ9uKs0N8qqQPG15qJSysklmS125A5ZHvwyMirg"
+
     # --- GST compliance ------------------------------------------------
     # Thresholds are policy, not physics: they have moved before and will
     # again, so they are settings rather than constants in the code.

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { clearSession, getToken } from "./auth";
 
 /** One place that knows how to talk to the API and how errors come back. */
 export class ApiError extends Error {
@@ -13,13 +14,22 @@ export class ApiError extends Error {
 }
 
 async function request(path, { method = "GET", body } = {}) {
+  const headers = {};
+  if (body) headers["Content-Type"] = "application/json";
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
   const response = await fetch(`/api${path}`, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await response.text();
   const payload = text ? JSON.parse(text) : null;
+  if (response.status === 401 && path !== "/auth/login") {
+    clearSession();
+    window.dispatchEvent(new Event("auth:logout"));
+  }
   if (!response.ok) throw new ApiError(response.status, payload);
   return payload;
 }

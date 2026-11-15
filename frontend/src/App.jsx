@@ -1,9 +1,12 @@
+import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { useApi } from "./api";
+import { clearSession, getUsername, isLoggedIn } from "./auth";
 import Deliveries from "./pages/Deliveries";
 import Billing from "./pages/Billing";
 import Dashboard from "./pages/Dashboard";
 import InvoiceDetail from "./pages/InvoiceDetail";
+import Login from "./pages/Login";
 import Money from "./pages/Money";
 import Records from "./pages/Records";
 import Setup from "./pages/Setup";
@@ -28,8 +31,13 @@ const NAV = [
   { to: "/setup", label: "Setup", icon: "⚙" },
 ];
 
-export default function App() {
+function Shell() {
   const { data: company } = useApi("/company");
+
+  function logout() {
+    clearSession();
+    window.dispatchEvent(new Event("auth:logout"));
+  }
 
   return (
     <div className="shell">
@@ -50,6 +58,12 @@ export default function App() {
             </NavLink>
           ))}
         </nav>
+        <div className="sidebar-foot">
+          <div className="sidebar-user">{getUsername() || "admin"}</div>
+          <button type="button" className="ghost" onClick={logout}>
+            Sign out
+          </button>
+        </div>
       </aside>
 
       <main className="main">
@@ -70,4 +84,20 @@ export default function App() {
       </main>
     </div>
   );
+}
+
+export default function App() {
+  const [authed, setAuthed] = useState(() => isLoggedIn());
+
+  useEffect(() => {
+    const onLogout = () => setAuthed(false);
+    window.addEventListener("auth:logout", onLogout);
+    return () => window.removeEventListener("auth:logout", onLogout);
+  }, []);
+
+  if (!authed) {
+    return <Login onSuccess={() => setAuthed(true)} />;
+  }
+
+  return <Shell />;
 }
