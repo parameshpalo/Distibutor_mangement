@@ -1,0 +1,11 @@
+fastapi>=0.115
+uvicorn[standard]>=0.34
+SQLAlchemy>=2.0.36
+pydantic>=2.10
+pydantic-settings>=2.7
+reportlab>=4.2
+python-dateutil>=2.9
+# For PostgreSQL in production, also: pip install "psycopg[binary]"
+
+# Test-only: smoke_test.py reads the generated PDFs back as text.
+pypdf>=5
